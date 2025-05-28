@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaliação Interativa da Qualidade das Refeições</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices:
+        - Form Content (Identification, Meal Details, Ratings, Comments): HTML inputs (text, radio, textarea) styled with Tailwind. Goal: Collect data. Interaction: User input, selections. Justification: Direct translation of the source form into an interactive digital format.
+        - Mock Submit Button: HTML button. Goal: Simulate form submission. Interaction: Click triggers a message and updates charts with new (mock) data. Justification: Provides user feedback and demonstrates chart dynamism in a frontend-only demo.
+        - Bar Chart (Average Ratings per Criterion): Chart.js Canvas. Goal: Illustrate comparison of average scores. Interaction: Tooltips on hover; dynamically updates based on (mock) form submissions. Justification: Common method for visualizing rating averages.
+        - Pie Chart (Meal Type Distribution): Chart.js Canvas. Goal: Illustrate proportional data. Interaction: Tooltips on hover; dynamically updates based on (mock) form submissions. Justification: Standard for showing distribution.
+        - All textual content from the form (instructions, labels) is included and presented within the interactive form structure.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f1ee; 
+        }
+        .form-section-title {
+            border-bottom: 2px solid #dcd0c0; 
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #4a4030; 
+        }
+        .rating-table th, .rating-table td {
+            border: 1px solid #e0e0e0;
+            padding: 0.5rem; /* Reduced padding for compactness */
+            text-align: center;
+            font-size: 0.875rem; /* Smaller font for table content */
+        }
+        .rating-table th {
+            background-color: #e9e4dd; 
+            color: #4a4030;
+        }
+        .rating-table td:first-child {
+            text-align: left;
+            width: 25%; /* Allocate more space for criteria labels */
+        }
+         .rating-table input[type="radio"] {
+            margin: 0 auto; /* Center radio buttons */
+        }
+        .rating-table input[type="text"] {
+            font-size: 0.875rem; /* Smaller font for observation inputs */
+            padding: 0.25rem 0.5rem;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px; 
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px; 
+            max-height: 320px;
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 320px;
+                max-width: 500px;
+            }
+        }
+        .content-card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            color: #5c5242; 
+        }
+        .btn-primary {
+            background-color: #8c7851; 
+            color: #ffffff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .btn-primary:hover {
+            background-color: #7a6742; 
+        }
+        input[type="text"], input[type="date"], textarea {
+            border: 1px solid #dcd0c0;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+            transition: border-color 0.3s;
+            background-color: #fff; /* Ensure inputs have white background */
+        }
+        input[type="text"]:focus, input[type="date"]:focus, textarea:focus {
+            outline: none;
+            border-color: #8c7851;
+            box-shadow: 0 0 0 2px rgba(140, 120, 81, 0.2);
+        }
+        label {
+            color: #4a4030;
+            font-weight: 500;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl sm:text-4xl font-bold text-[#4a4030] mb-2">Formulário de Avaliação da Qualidade das Refeições Diárias</h1>
+            <p class="text-md sm:text-lg text-[#5c5242]">
+                Coletar dados para analisar e definir notas de qualidade para as refeições servidas em diferentes horários, visando a melhoria contínua dos nossos serviços.
+            </p>
+            <p class="text-sm text-[#5c5242] mt-1">Por favor, preencha este formulário com base na sua experiência com a refeição consumida. A sua opinião é muito importante!</p>
+        </header>
+
+        <main id="app-content">
+            <section id="form-section" class="mb-12 content-card">
+                <h2 class="form-section-title mb-6">Detalhes da Avaliação</h2>
+                <form id="mealQualityForm" class="space-y-8">
+                    
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#4a4030] mb-4">1. Identificação (Opcional)</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="nome" class="block text-sm font-medium mb-1">Nome:</label>
+                                <input type="text" id="nome" name="nome" class="h-10">
+                            </div>
+                            <div>
+                                <label for="departamento" class="block text-sm font-medium mb-1">Departamento/Setor:</label>
+                                <input type="text" id="departamento" name="departamento" class="h-10">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#4a4030] mb-4">2. Data e Horário da Refeição Avaliada</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="dataAvaliacao" class="block text-sm font-medium mb-1">Data da Avaliação:</label>
+                                <input type="date" id="dataAvaliacao" name="dataAvaliacao" class="h-10">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Horário da Refeição:</label>
+                                <div class="space-y-2 mt-1">
+                                    <div class="flex items-center"><input type="radio" name="horarioRefeicao" value="cafe" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851]"> <span class="ml-2 text-sm">Café da Manhã (05:00 - 08:00)</span></div>
+                                    <div class="flex items-center"><input type="radio" name="horarioRefeicao" value="lanche_manha" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851]"> <span class="ml-2 text-sm">Lanche da Manhã (09:00 - 09:30)</span></div>
+                                    <div class="flex items-center"><input type="radio" name="horarioRefeicao" value="almoco" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851]"> <span class="ml-2 text-sm">Almoço (11:00 - 13:00)</span></div>
+                                    <div class="flex items-center"><input type="radio" name="horarioRefeicao" value="lanche_tarde" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851]"> <span class="ml-2 text-sm">Lanche da Tarde (15:00 - 15:30)</span></div>
+                                    <div class="flex items-center"><input type="radio" name="horarioRefeicao" value="jantar" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851]"> <span class="ml-2 text-sm">Jantar (17:00 - 20:00)</span></div>
+                                    <div class="flex items-center"><input type="radio" name="horarioRefeicao" value="lanche_noite" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851]"> <span class="ml-2 text-sm">Lanche noite (21:30 - 22:00)</span></div>
+                                    <div class="flex items-center"><input type="radio" name="horarioRefeicao" value="ceia" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851]"> <span class="ml-2 text-sm">Ceia (23:00 - 00:30)</span></div>
+                                    <div class="flex items-center">
+                                        <input type="radio" name="horarioRefeicao" value="outro" id="horarioOutroRadio" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851]">
+                                        <span class="ml-2 text-sm">Outro (especificar):</span>
+                                        <input type="text" id="horarioOutroTexto" name="horarioOutroTexto" class="ml-2 h-8 text-sm flex-grow max-w-xs" placeholder="Ex: Lanche Madrugada, 02:00" disabled>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#4a4030] mb-4">3. Descrição da Refeição</h3>
+                        <div>
+                            <label for="descricaoRefeicao" class="block text-sm font-medium mb-1">Principal item(ns) consumido(s):</label>
+                            <textarea id="descricaoRefeicao" name="descricaoRefeicao" rows="3" class="p-2" placeholder="Ex: Arroz, feijão, bife acebolado e salada de alface e tomate"></textarea>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#4a4030] mb-4">4. Avaliação da Qualidade</h3>
+                        <p class="text-sm text-[#5c5242] mb-3">Utilize a seguinte escala para cada critério: 5 (Excelente), 4 (Bom), 3 (Regular), 2 (Ruim), 1 (Péssimo), N/A (Não se Aplica).</p>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full rating-table">
+                                <thead>
+                                    <tr>
+                                        <th>Critério de Avaliação</th>
+                                        <th>5</th><th>4</th><th>3</th><th>2</th><th>1</th><th>N/A</th>
+                                        <th class="w-1/3 sm:w-auto">Observações (Opcional)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ratingsTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#4a4030] mb-4">5. Comentários e Sugestões Adicionais</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="gostouMais" class="block text-sm font-medium mb-1">O que você mais gostou nesta refeição?</label>
+                                <textarea id="gostouMais" name="gostouMais" rows="3" class="p-2"></textarea>
+                            </div>
+                            <div>
+                                <label for="poderiaMelhorar" class="block text-sm font-medium mb-1">O que poderia ser melhorado?</label>
+                                <textarea id="poderiaMelhorar" name="poderiaMelhorar" rows="3" class="p-2"></textarea>
+                            </div>
+                            <div>
+                                <label for="outrasSugestoes" class="block text-sm font-medium mb-1">Outras sugestões ou comentários:</label>
+                                <textarea id="outrasSugestoes" name="outrasSugestoes" rows="3" class="p-2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-10">
+                        <button type="submit" class="btn-primary">Enviar Avaliação e Atualizar Gráficos</button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="data-visualization-preview" class="mb-12 content-card">
+                <h2 class="form-section-title mb-6">Visualização de Dados (Atualizado com Envios)</h2>
+                <p class="text-[#5c5242] mb-8">Esta seção apresenta como os dados coletados podem ser visualizados. Os gráficos são atualizados (simulado) com cada envio do formulário.</p>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="chart-container">
+                        <h3 class="text-lg font-semibold text-[#4a4030] mb-2 text-center">Média de Avaliações por Critério</h3>
+                        <canvas id="averageRatingsChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3 class="text-lg font-semibold text-[#4a4030] mb-2 text-center">Distribuição de Refeições Avaliadas por Horário</h3>
+                        <canvas id="mealTimeDistributionChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <footer class="text-center mt-12 py-6 border-t border-[#dcd0c0]">
+            <p class="text-sm text-[#5c5242]">&copy; <span id="currentYear"></span> Sistema de Avaliação de Refeições. Todos os direitos reservados (Exemplo).</p>
+        </footer>
+    </div>
+
+    <div id="toast-message" class="toast"></div>
+
+    <script>
+        // Variáveis globais para os gráficos e dados
+        let averageRatingsChartInstance;
+        let mealTimeDistributionChartInstance;
+        
+        // Armazenamento simulado de dados de avaliações
+        const allSubmissions = []; 
+
+        const ratingCriteria = [
+            { id: 'sabor', label: 'Sabor Geral', obsDefault: '' },
+            { id: 'aparencia', label: 'Aparência/Apresentação', obsDefault: '' },
+            { id: 'temperatura', label: 'Temperatura dos Alimentos', obsDefault: '(Quente o suficiente?)' },
+            { id: 'ingredientes', label: 'Qualidade dos Ingredientes', obsDefault: '(Frescor, textura, etc.)' },
+            { id: 'variedade', label: 'Variedade das Opções', obsDefault: '(Cardápio do dia)' },
+            { id: 'quantidade', label: 'Quantidade/Porção', obsDefault: '(Satisfatória?)' },
+            { id: 'higiene', label: 'Higiene e Limpeza', obsDefault: '(Local, utensílios)' },
+            { id: 'atendimento', label: 'Atendimento (se houver)', obsDefault: '(Cordialidade)' }
+        ];
+
+        const mealTimeLabels = {
+            cafe: 'Café da Manhã',
+            lanche_manha: 'Lanche da Manhã',
+            almoco: 'Almoço',
+            lanche_tarde: 'Lanche da Tarde',
+            jantar: 'Jantar',
+            lanche_noite: 'Lanche Noite',
+            ceia: 'Ceia',
+            outro: 'Outro'
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+            const ratingsTableBody = document.getElementById('ratingsTableBody');
+            ratingCriteria.forEach(criterion => {
+                const row = ratingsTableBody.insertRow();
+                row.innerHTML = `
+                    <td class="py-2 px-3 text-sm text-left text-[#4a4030]">${criterion.label}</td>
+                    ${[5, 4, 3, 2, 1, 'N/A'].map(val => `
+                        <td class="py-1 px-1 sm:py-2 sm:px-3">
+                            <input type="radio" name="rating_${criterion.id}" value="${val}" class="h-4 w-4 text-[#8c7851] border-gray-300 focus:ring-[#8c7851] cursor-pointer">
+                        </td>
+                    `).join('')}
+                    <td class="py-1 px-1 sm:py-2 sm:px-3">
+                        <input type="text" name="obs_${criterion.id}" class="w-full h-8 text-xs p-1 border border-gray-300 rounded" placeholder="${criterion.obsDefault}">
+                    </td>
+                `;
+            });
+
+            const horarioOutroRadio = document.getElementById('horarioOutroRadio');
+            const horarioOutroTexto = document.getElementById('horarioOutroTexto');
+            document.querySelectorAll('input[name="horarioRefeicao"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    horarioOutroTexto.disabled = !horarioOutroRadio.checked;
+                    if (horarioOutroRadio.checked) {
+                        horarioOutroTexto.focus();
+                    } else {
+                        horarioOutroTexto.value = '';
+                    }
+                });
+            });
+            
+            const form = document.getElementById('mealQualityForm');
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const formData = new FormData(form);
+                const submissionData = { ratings: {}, mealTime: null };
+
+                let mealTimeValue = formData.get('horarioRefeicao');
+                if (mealTimeValue === 'outro') {
+                    submissionData.mealTime = formData.get('horarioOutroTexto') || 'Outro (não especificado)';
+                } else {
+                    submissionData.mealTime = mealTimeLabels[mealTimeValue] || 'Não especificado';
+                }
+                
+                ratingCriteria.forEach(criterion => {
+                    const ratingValue = formData.get(`rating_${criterion.id}`);
+                    if (ratingValue && ratingValue !== 'N/A') {
+                        submissionData.ratings[criterion.id] = parseInt(ratingValue);
+                    } else {
+                         submissionData.ratings[criterion.id] = null; // Store N/A or unanswered as null
+                    }
+                });
+                
+                allSubmissions.push(submissionData);
+                updateCharts();
+                
+                showToast('Avaliação enviada e gráficos atualizados! (Simulação)');
+                form.reset(); 
+                if (horarioOutroTexto) horarioOutroTexto.disabled = true;
+            });
+
+            initializeCharts();
+        });
+
+        function showToast(message) {
+            const toastElement = document.getElementById('toast-message');
+            if (toastElement) {
+                toastElement.textContent = message;
+                toastElement.classList.add('show');
+                setTimeout(() => {
+                    toastElement.classList.remove('show');
+                }, 3000);
+            }
+        }
+
+        function initializeCharts() {
+            Chart.defaults.font.family = 'Inter, sans-serif';
+            Chart.defaults.color = '#5c5242';
+            Chart.defaults.borderColor = '#e0e0e0';
+
+            const avgRatingsCtx = document.getElementById('averageRatingsChart').getContext('2d');
+            averageRatingsChartInstance = new Chart(avgRatingsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ratingCriteria.map(c => c.label.length > 15 ? c.label.substring(0, 14) + '...' : c.label),
+                    datasets: [{
+                        label: 'Média de Avaliação',
+                        data: ratingCriteria.map(() => 0), // Initial empty data
+                        backgroundColor: 'rgba(140, 120, 81, 0.6)',
+                        borderColor: 'rgba(140, 120, 81, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } },
+                        x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#4a4030', titleFont: { size: 14 }, bodyFont: { size: 12 },
+                            callbacks: {
+                                label: context => `${context.dataset.label || ''}: ${context.parsed.y !== null ? context.parsed.y.toFixed(1) + ' de 5' : 'N/A'}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            const mealTimeCtx = document.getElementById('mealTimeDistributionChart').getContext('2d');
+            mealTimeDistributionChartInstance = new Chart(mealTimeCtx, {
+                type: 'pie',
+                data: {
+                    labels: Object.values(mealTimeLabels),
+                    datasets: [{
+                        label: 'Distribuição por Horário',
+                        data: Object.values(mealTimeLabels).map(() => 0), // Initial empty data
+                        backgroundColor: [
+                            'rgba(140, 120, 81, 0.7)', 'rgba(220, 208, 192, 0.7)',
+                            'rgba(186, 172, 147, 0.7)', 'rgba(233, 228, 221, 0.7)',
+                            'rgba(160, 140, 100, 0.7)', 'rgba(200, 180, 150, 0.7)',
+                            'rgba(120, 100, 70, 0.7)', 'rgba(240, 230, 220, 0.7)'
+                        ],
+                        borderColor: '#ffffff',
+                        borderWidth: 1.5
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth:12, padding:15, font: {size: 10} } },
+                        tooltip: {
+                            backgroundColor: '#4a4030', titleFont: { size: 14 }, bodyFont: { size: 12 },
+                            callbacks: {
+                                label: context => `${context.label || ''}: ${context.parsed || 0} avaliações`
+                            }
+                        }
+                    }
+                }
+            });
+            updateCharts(); // Call once to show initial empty state or placeholder if desired
+        }
+
+        function updateCharts() {
+            // Update Average Ratings Chart
+            if (averageRatingsChartInstance) {
+                const averageScores = ratingCriteria.map(criterion => {
+                    const relevantRatings = allSubmissions
+                        .map(s => s.ratings[criterion.id])
+                        .filter(r => r !== null && !isNaN(r)); // Filter out null/NaN
+                    if (relevantRatings.length === 0) return 0;
+                    return relevantRatings.reduce((sum, current) => sum + current, 0) / relevantRatings.length;
+                });
+                averageRatingsChartInstance.data.datasets[0].data = averageScores;
+                averageRatingsChartInstance.update();
+            }
+
+            // Update Meal Time Distribution Chart
+            if (mealTimeDistributionChartInstance) {
+                const mealCounts = {};
+                Object.values(mealTimeLabels).forEach(label => mealCounts[label] = 0); // Initialize all known labels
+
+                allSubmissions.forEach(submission => {
+                    const mealTimeKey = submission.mealTime || 'Não especificado';
+                    if(mealCounts.hasOwnProperty(mealTimeKey)) {
+                        mealCounts[mealTimeKey]++;
+                    } else { 
+                        // If it's a custom 'outro' not in mealTimeLabels, add it
+                        if(!mealTimeDistributionChartInstance.data.labels.includes(mealTimeKey)){
+                            mealTimeDistributionChartInstance.data.labels.push(mealTimeKey);
+                            // Add a new color if needed, simple cycling for demo
+                            const colors = mealTimeDistributionChartInstance.data.datasets[0].backgroundColor;
+                            colors.push(colors[Object.keys(mealCounts).length % colors.length]);
+                        }
+                        mealCounts[mealTimeKey] = (mealCounts[mealTimeKey] || 0) + 1;
+                    }
+                });
+                
+                // Ensure labels in chart data match current mealCounts keys
+                mealTimeDistributionChartInstance.data.labels = Object.keys(mealCounts);
+                mealTimeDistributionChartInstance.data.datasets[0].data = Object.values(mealCounts);
+                mealTimeDistributionChartInstance.update();
+            }
+        }
+    </script>
+</body>
+</html>
